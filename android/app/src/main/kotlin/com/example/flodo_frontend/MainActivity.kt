@@ -1,4 +1,4 @@
-package com.example.task_manager_frontend
+package com.example.flodo_frontend
 
 import io.flutter.embedding.android.FlutterActivity
 
