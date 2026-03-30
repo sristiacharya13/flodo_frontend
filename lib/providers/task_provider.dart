@@ -25,34 +25,36 @@ class TaskProvider with ChangeNotifier {
   }
 
   /// Adds a new task and then refreshes the entire list from the server
-  Future<void> addTask(String title, String description) async {
+  Future<void> createTask(Task task) async {
     _isLoading = true;
     notifyListeners();
     try {
-      final newTask = Task(
-        id: 0, // Backend will assign the real ID
-        title: title,
-        description: description,
-        dueDate: DateTime.now().add(const Duration(days: 1)),
-        status: 'To-Do',
-        position: _tasks.length,
-        isRecurring: false,
-      );
-
-      // 1. Send the new task to the backend
-      await _apiService.createTask(newTask);
-
-      // 2. Refresh the whole list from the server
-      // This ensures local state perfectly matches the database
+      await Future.delayed(const Duration(seconds: 2));
+      await _apiService.createTask(task);
       await fetchTasks();
-      
     } catch (e) {
-      debugPrint("Error adding task: $e");
-      rethrow; // Re-throwing allows the UI to catch and show an error SnackBar
+      debugPrint("Error creating task: $e");
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> handleRecurring(Task task) async {
+    final newDueDate = task.recurringType == 'Daily' ? task.dueDate.add(const Duration(days: 1)) : task.dueDate.add(const Duration(days: 7));
+    final newTask = Task(
+      id: 0,
+      title: task.title,
+      description: task.description,
+      dueDate: newDueDate,
+      status: 'To-Do',
+      blockedById: task.blockedById,
+      position: _tasks.length,
+      isRecurring: true,
+      recurringType: task.recurringType,
+    );
+    await createTask(newTask);
   }
 
   /// Updates status and handles the local state update
@@ -75,6 +77,9 @@ class TaskProvider with ChangeNotifier {
           recurringType: _tasks[index].recurringType,
         );
         notifyListeners();
+        if (_tasks[index].isRecurring && status == 'Done') {
+          await handleRecurring(_tasks[index]);
+        }
       }
     } catch (e) {
       debugPrint("Error updating status: $e");
@@ -90,6 +95,32 @@ class TaskProvider with ChangeNotifier {
       await fetchTasks();
     } catch (e) {
       debugPrint("Error reordering tasks: $e");
+    }
+  }
+  Future<void> updateTask(Task task) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _apiService.updateTask(task);
+      await fetchTasks();
+    } catch (e) {
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  Future<void> deleteTask(int id) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _apiService.deleteTask(id);
+      _tasks.removeWhere((t) => t.id == id);
+    } catch (e) {
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }

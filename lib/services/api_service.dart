@@ -80,4 +80,20 @@ class ApiService {
       throw Exception('Failed to reorder tasks');
     }
   }
+
+  Future<void> updateTask(Task task) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/tasks/${task.id}'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(task.toJson()),
+    );
+    if (response.statusCode != 200) throw Exception('Failed to update task');
+  }
+
+  Future<void> deleteTask(int id) async {
+    final response = await http.delete(Uri.parse('$baseUrl/tasks/$id'));
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to delete task');
+    }
+  }
 }
