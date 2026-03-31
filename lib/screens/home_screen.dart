@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../models/task_model.dart';
 import '../providers/task_provider.dart';
 import '../widgets/task_card.dart';
 import '../widgets/task_form_modal.dart';
@@ -18,7 +17,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
   String _selectedStatus = '';
+  int _selectedIndex = 0;
   final ScrollController _scrollController = ScrollController();
+  final List<String> _statuses = ['All', 'To-Do', 'In Progress', 'Done'];
 
   @override
   void initState() {
@@ -42,9 +43,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _onStatusChanged(String? status) {
+  void _onStatusChanged(int index) {
     setState(() {
-      _selectedStatus = status ?? '';
+      _selectedIndex = index;
+      _selectedStatus = index == 0 ? '' : _statuses[index];
     });
     final provider = Provider.of<TaskProvider>(context, listen: false);
     provider.fetchTasks(search: _searchController.text, status: _selectedStatus.isEmpty ? null : _selectedStatus);
@@ -81,25 +83,32 @@ class _HomeScreenState extends State<HomeScreen> {
           SliverAppBar(
             floating: true,
             pinned: true,
-            expandedHeight: 120,
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text('Flodo Tasks'),
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue, Colors.purple],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+            expandedHeight: 180,
+            backgroundColor: Colors.blue,
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue, Colors.purple],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
             ),
             bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(80),
+              preferredSize: const Size.fromHeight(180),
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
+                    const Text(
+                      'Flodo Tasks',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
@@ -113,22 +122,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _selectedStatus.isEmpty ? null : _selectedStatus,
-                      hint: const Text('Filter by status'),
-                      items: const [
-                        DropdownMenuItem(value: 'To-Do', child: Text('To-Do')),
-                        DropdownMenuItem(value: 'In Progress', child: Text('In Progress')),
-                        DropdownMenuItem(value: 'Done', child: Text('Done')),
-                      ],
-                      onChanged: _onStatusChanged,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surface.withOpacity(0.8),
-                      ),
+                    ToggleButtons(
+                      isSelected: List.generate(_statuses.length, (index) => index == _selectedIndex),
+                      onPressed: _onStatusChanged,
+                      children: _statuses.map((status) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(status),
+                      )).toList(),
+                      borderRadius: BorderRadius.circular(12),
+                      selectedColor: Colors.white,
+                      fillColor: Colors.blueAccent,
+                      color: Colors.white,
                     ),
                   ],
                 ),
@@ -154,11 +158,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     HapticFeedback.lightImpact();
                     try {
                       await provider.updateStatus(task.id, status);
-                      if (task.isRecurring && status == 'Done') {
-                        // Handle recurring in provider
-                        await provider.handleRecurring(task);
-                      }
                     } catch (e) {
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(e.toString().replaceAll('Exception: ', '')),

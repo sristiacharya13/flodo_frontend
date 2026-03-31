@@ -61,26 +61,10 @@ class TaskProvider with ChangeNotifier {
   Future<void> updateStatus(int id, String status) async {
     try {
       await _apiService.updateTaskStatus(id, status);
-      
-      // Update locally to avoid a full fetchTasks() call for a simple status toggle
-      final index = _tasks.indexWhere((task) => task.id == id);
-      if (index != -1) {
-        _tasks[index] = Task(
-          id: _tasks[index].id,
-          title: _tasks[index].title,
-          description: _tasks[index].description,
-          dueDate: _tasks[index].dueDate,
-          status: status,
-          blockedById: _tasks[index].blockedById,
-          position: _tasks[index].position,
-          isRecurring: _tasks[index].isRecurring,
-          recurringType: _tasks[index].recurringType,
-        );
-        notifyListeners();
-        if (_tasks[index].isRecurring && status == 'Done') {
-          await handleRecurring(_tasks[index]);
-        }
-      }
+
+      // IMPORTANT: Backend may create a follow-up task (recurring logic) on status change.
+      // Refresh from server so the newly-created recurring task is displayed.
+      await fetchTasks();
     } catch (e) {
       debugPrint("Error updating status: $e");
       rethrow; // Critical for showing the "Blocked" error message in the UI
